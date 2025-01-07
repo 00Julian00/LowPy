@@ -1,4 +1,5 @@
 test.py
 lowpy.cpython-311-x86_64-linux-gnu.so
+lowpy/lowpy_cpp.cpython-311-x86_64-linux-gnu.so
 .vscode
 reinstall.sh

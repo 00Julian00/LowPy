@@ -32,6 +32,31 @@ class MemoryPtr
             size += bytes;
         }
 
+        void reallocate(size_t bytes)
+        {
+            if (ptr)
+            {
+                void* new_ptr = realloc(ptr, size + bytes);
+                if (new_ptr)
+                {
+                    ptr = new_ptr;
+                    size += bytes;
+                }
+                else
+                {
+                    throw std::bad_alloc();
+                }
+            }
+            else
+            {
+                ptr = malloc(bytes);
+                if (!ptr) {
+                    throw std::bad_alloc();
+                }
+                size = bytes;
+            }
+        }
+
         void deallocate()
         {
             if (ptr)
@@ -56,15 +81,18 @@ class MemoryPtr
             return *reinterpret_cast<T*>(static_cast<char*>(ptr) + offset);
         }
 
-        void copy(MemoryPtr& copy_to) const
+        void read_raw(void* buffer, size_t offset, size_t num_bytes)
         {
-            copy_to.deallocate();
-            copy_to.allocate(size);
-            if (ptr && size > 0)
-            {
-                memcpy(copy_to.ptr, ptr, size);
-            }
+            if (offset + num_bytes > size) throw std::out_of_range("Memory access out of bounds");
+            memcpy(buffer, static_cast<char*>(ptr) + offset, num_bytes);
         }
+
+        void write_raw(const void* buffer, size_t offset, size_t num_bytes)
+        {
+            if (offset + num_bytes > size) throw std::out_of_range("Memory access out of bounds");
+            memcpy(static_cast<char*>(ptr) + offset, buffer, num_bytes);
+        }
+
 
     ~MemoryPtr()
     {
@@ -72,14 +100,13 @@ class MemoryPtr
     }
 };
 
-PYBIND11_MODULE(lowpy, m)
+PYBIND11_MODULE(lowpy_cpp, m)
 {
-    m.doc() = "LowPy provides low level access to C++ pointers from python in a memory safe way.";
-
     py::class_<MemoryPtr>(m, "MemoryPtr")        
         .def(py::init<>())
         .def(py::init<size_t>())
         .def("allocate", &MemoryPtr::allocate)
+        .def("reallocate", &MemoryPtr::reallocate)
         .def("deallocate", &MemoryPtr::deallocate)
         // Add default values for offset parameters
         .def("write_int", &MemoryPtr::write<int>, py::arg("value"), py::arg("offset") = 0)
@@ -90,6 +117,23 @@ PYBIND11_MODULE(lowpy, m)
         .def("read_float", &MemoryPtr::read<float>, py::arg("offset") = 0)
         .def("read_double", &MemoryPtr::read<double>, py::arg("offset") = 0)
         .def("read_char", &MemoryPtr::read<char>, py::arg("offset") = 0)
-        .def("copy", &MemoryPtr::copy)
+
+        // For copying pointers
+        .def("read_bytes", [](MemoryPtr& self, size_t num_bytes, size_t offset)
+        {
+            std::string buffer(num_bytes, '\0');  // Create a string buffer
+            self.read_raw(&buffer[0], offset, num_bytes);
+            return py::bytes(buffer);  // Convert to Python bytes
+        })
+        .def("write_bytes", [](MemoryPtr& self, const py::bytes& data, size_t offset)
+        {
+            char* buffer;
+            Py_ssize_t length;
+            if (PyBytes_AsStringAndSize(data.ptr(), &buffer, &length) != -1)
+            {
+                self.write_raw(buffer, offset, length);
+            }
+        })
+
         .def_readonly("size", &MemoryPtr::size);
 }
