@@ -120,7 +120,7 @@ class MemoryPtr:
         """
         return self._ptr.read_char(offset)
     
-    def read_byte(self, amount: int, offset: int = 0) -> bytes:
+    def read_bytes(self, amount: int, offset: int = 0) -> bytes:
         """
         Read data from memory as a raw byte.
 

@@ -12,6 +12,7 @@ ext_modules = [
 
 setup(
     name="lowpy",
+    version= "1.0.0",
     packages=["lowpy"],
     ext_modules=ext_modules,
     install_requires=['pybind11>=2.4.3'],
